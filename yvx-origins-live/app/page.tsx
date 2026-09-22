@@ -9,12 +9,11 @@ type Row = {
   product: string;
   size: string;
   status: string;
+  state: "sold" | "reserved" | "inactive" | "on_hand";
   warehouse: string;
   subLocation: string;
   sellPrice: number;
   soldPrice: number;
-  costPrice: number;
-  profit: number;
   soldAt: string | null;
   updatedAt: string | null;
   days: number | null;
@@ -31,18 +30,28 @@ type Product = {
 };
 
 const SAMPLE: Row[] = [
-  { id:"1", sku:"YVX-MASON-BRN-S", productId:"mason", product:"Mason Pant — Brown Cigar", size:"S", status:"AVAILABLE", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:220, soldPrice:0, costPrice:0, profit:0, soldAt:null, updatedAt:new Date().toISOString(), days:8 },
-  { id:"2", sku:"YVX-MASON-BRN-M", productId:"mason", product:"Mason Pant — Brown Cigar", size:"M", status:"SOLD", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:220, soldPrice:220, costPrice:0, profit:0, soldAt:"2026-09-18T17:30:00Z", updatedAt:new Date().toISOString(), days:0 },
-  { id:"3", sku:"YVX-MASON-BRN-L", productId:"mason", product:"Mason Pant — Brown Cigar", size:"L", status:"AVAILABLE", warehouse:"Origins NYC", subLocation:"Back Stock", sellPrice:220, soldPrice:0, costPrice:0, profit:0, soldAt:null, updatedAt:new Date().toISOString(), days:21 },
-  { id:"4", sku:"YVX-MERCY-S", productId:"mercy", product:"Mercy Jacket", size:"S", status:"AVAILABLE", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:380, soldPrice:0, costPrice:0, profit:0, soldAt:null, updatedAt:new Date().toISOString(), days:4 },
-  { id:"5", sku:"YVX-MERCY-M", productId:"mercy", product:"Mercy Jacket", size:"M", status:"AVAILABLE", warehouse:"Miami", subLocation:"Rack 2", sellPrice:380, soldPrice:0, costPrice:0, profit:0, soldAt:null, updatedAt:new Date().toISOString(), days:6 },
-  { id:"6", sku:"YVX-SKULLY-OS", productId:"skully", product:"YVX Skully Cap", size:"OS", status:"AVAILABLE", warehouse:"Origins NYC", subLocation:"Accessories", sellPrice:85, soldPrice:0, costPrice:0, profit:0, soldAt:null, updatedAt:new Date().toISOString(), days:12 },
-  { id:"7", sku:"YVX-SKULLY-OS-2", productId:"skully", product:"YVX Skully Cap", size:"OS", status:"SOLD", warehouse:"Origins NYC", subLocation:"Accessories", sellPrice:85, soldPrice:85, costPrice:0, profit:0, soldAt:"2026-09-20T20:00:00Z", updatedAt:new Date().toISOString(), days:0 },
+  { id:"1", sku:"YVX-MASON-BRN-S", productId:"mason", product:"Mason Pant — Brown Cigar", size:"S", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:220, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:8 },
+  { id:"2", sku:"YVX-MASON-BRN-M", productId:"mason", product:"Mason Pant — Brown Cigar", size:"M", status:"SOLD", state:"sold", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:220, soldPrice:220, soldAt:"2026-09-18T17:30:00Z", updatedAt:new Date().toISOString(), days:0 },
+  { id:"3", sku:"YVX-MASON-BRN-L", productId:"mason", product:"Mason Pant — Brown Cigar", size:"L", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Back Stock", sellPrice:220, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:21 },
+  { id:"4", sku:"YVX-MERCY-S", productId:"mercy", product:"Mercy Jacket", size:"S", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:380, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:4 },
+  { id:"5", sku:"YVX-MERCY-M", productId:"mercy", product:"Mercy Jacket", size:"M", status:"AVAILABLE", state:"on_hand", warehouse:"Miami", subLocation:"Rack 2", sellPrice:380, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:6 },
+  { id:"6", sku:"YVX-SKULLY-OS", productId:"skully", product:"YVX Skully Cap", size:"OS", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Accessories", sellPrice:85, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:12 },
+  { id:"7", sku:"YVX-SKULLY-OS-2", productId:"skully", product:"YVX Skully Cap", size:"OS", status:"SOLD", state:"sold", warehouse:"Origins NYC", subLocation:"Accessories", sellPrice:85, soldPrice:85, soldAt:"2026-09-20T20:00:00Z", updatedAt:new Date().toISOString(), days:0 },
 ];
 
-function availableStatus(status: string) {
-  const s = status.toUpperCase();
-  return !["SOLD", "RETURNED", "REMOVED", "DELETED"].some((word) => s.includes(word));
+function isOnHand(row: Row) {
+  return row.state === "on_hand";
+}
+
+function isSold(row: Row) {
+  return row.state === "sold" || Boolean(row.soldAt);
+}
+
+function stateLabel(row: Row) {
+  if (isSold(row)) return "Sold";
+  if (row.state === "reserved") return "Reserved";
+  if (row.state === "inactive") return "Inactive";
+  return "On hand";
 }
 
 function money(n: number) {
@@ -98,8 +107,8 @@ export default function Page() {
       grouped.set(row.productId, arr);
     }
     return Array.from(grouped.entries()).map(([id, itemRows]) => {
-      const live = itemRows.filter(r => availableStatus(r.status));
-      const sold = itemRows.filter(r => !availableStatus(r.status));
+      const live = itemRows.filter(isOnHand);
+      const sold = itemRows.filter(isSold);
       const sizes = Array.from(new Set(itemRows.map(r => r.size)));
       const lowSizes = sizes.filter(size => live.filter(r => r.size === size).length < 2);
       const soldDates = sold.map(r => r.soldAt).filter(Boolean) as string[];
@@ -121,8 +130,8 @@ export default function Page() {
   }, [rows, warehouse, query, stockFilter]);
 
   const scopedRows = warehouse === "All Locations" ? rows : rows.filter(r => r.warehouse === warehouse);
-  const liveRows = scopedRows.filter(r => availableStatus(r.status));
-  const soldRows = scopedRows.filter(r => !availableStatus(r.status));
+  const liveRows = scopedRows.filter(isOnHand);
+  const soldRows = scopedRows.filter(isSold);
   const revenue = soldRows.reduce((sum,r) => sum + (r.soldPrice || 0), 0);
   const uniqueProducts = new Set(liveRows.map(r => r.productId)).size;
   const lowCount = products.filter(p => p.lowSizes.length > 0).length;
@@ -143,7 +152,7 @@ export default function Page() {
       allSizes.set(key, arr);
     });
     allSizes.forEach(items => {
-      const current = items.filter(r => r.warehouse === originsWarehouse && availableStatus(r.status)).length;
+      const current = items.filter(r => r.warehouse === originsWarehouse && isOnHand(r)).length;
       if (current < 2) result.push({ product:items[0].product, size:items[0].size, current, needed:2-current });
     });
     return result.sort((a,b) => a.product.localeCompare(b.product) || a.size.localeCompare(b.size));
@@ -166,7 +175,7 @@ export default function Page() {
       </section>
 
       <section className="stats shell">
-        <article><span>Units available</span><strong>{liveRows.length}</strong><small>Across selected inventory</small></article>
+        <article><span>Units on hand</span><strong>{liveRows.length}</strong><small>Across selected inventory</small></article>
         <article><span>Active styles</span><strong>{uniqueProducts}</strong><small>YVX products in stock</small></article>
         <article><span>Needs restock</span><strong>{lowCount}</strong><small>Styles with a size below 2</small></article>
         <article><span>Recorded sales</span><strong>{money(revenue)}</strong><small>{soldRows.length} sold inventory records</small></article>
@@ -207,7 +216,7 @@ export default function Page() {
         <article className="panel compact">
           <div className="panelHead"><div><h2>Recent movement</h2><p>Latest sold or updated inventory.</p></div></div>
           <div className="activity">
-            {[...rows].sort((a,b)=>new Date(b.updatedAt||0).getTime()-new Date(a.updatedAt||0).getTime()).slice(0,6).map(r=><div key={r.id}><span className="activityDot"></span><span><b>{r.product}</b><small>{r.size} · {r.warehouse}</small></span><time>{r.soldAt ? "Sold" : "Updated"}</time></div>)}
+            {[...rows].sort((a,b)=>new Date(b.updatedAt||0).getTime()-new Date(a.updatedAt||0).getTime()).slice(0,6).map(r=><div key={r.id}><span className="activityDot"></span><span><b>{r.product}</b><small>{r.size} · {r.warehouse}</small></span><time>{isSold(r) ? "Sold" : "Updated"}</time></div>)}
           </div>
         </article>
       </section>
@@ -218,11 +227,11 @@ export default function Page() {
         <div className="detailStats"><div><span>Available</span><strong>{selectedProduct.available}</strong></div><div><span>Sold records</span><strong>{selectedProduct.sold}</strong></div><div><span>Last sold</span><strong>{formatDate(selectedProduct.lastSold)}</strong></div></div>
         <h3>Inventory by size</h3>
         <div className="sizeList">{Array.from(new Set(selectedProduct.rows.map(r=>r.size))).map(size=>{
-          const sizeRows=selectedProduct.rows.filter(r=>r.size===size); const live=sizeRows.filter(r=>availableStatus(r.status));
+          const sizeRows=selectedProduct.rows.filter(r=>r.size===size); const live=sizeRows.filter(isOnHand);
           return <div key={size}><span className="sizeBox">{size}</span><span><b>{live.length} available</b><small>{Array.from(new Set(live.map(r=>r.warehouse))).join(" · ") || "No live inventory"}</small></span><span className={live.length<2?"warn":"ok"}>{live.length<2?`Need ${2-live.length}`:"Healthy"}</span></div>
         })}</div>
         <h3>Inventory records</h3>
-        <div className="records">{selectedProduct.rows.map(r=><div key={r.id}><span><b>{r.size}</b><small>{r.sku || "No SKU"}</small></span><span>{r.warehouse}<small>{r.subLocation}</small></span><span><b>{availableStatus(r.status)?"Available":"Sold"}</b><small>{r.soldAt?formatDate(r.soldAt):money(r.sellPrice)}</small></span></div>)}</div>
+        <div className="records">{selectedProduct.rows.map(r=><div key={r.id}><span><b>{r.size}</b><small>{r.sku || "No SKU"}</small></span><span>{r.warehouse}<small>{r.subLocation}</small></span><span><b>{stateLabel(r)}</b><small>{r.soldAt?formatDate(r.soldAt):money(r.sellPrice)}</small></span></div>)}</div>
       </aside></div>}
     </main>
   );

@@ -4,8 +4,12 @@ const REFRESH_URL = process.env.STACKKNACK_REFRESH_URL || `${STACKKNACK_ORIGIN}/
 const ORG_ID = process.env.STACKKNACK_ORG_ID || "9f41d723-7cfe-4530-8812-f1aa1c657fc5";
 
 const INITIAL_REFRESH_TOKEN = process.env.STACKKNACK_REFRESH_TOKEN;
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const REDIS_URL =
+  process.env.UPSTASH_REDIS_REST_URL ??
+  process.env.upstash_redis_rest_KV_REST_API_URL;
+const REDIS_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN ??
+  process.env.upstash_redis_rest_KV_REST_API_TOKEN;
 
 const REFRESH_TOKEN_KEY = "yvx:stackknack:refresh-token";
 const ACCESS_TOKEN_KEY = "yvx:stackknack:access-token";
@@ -78,7 +82,7 @@ type RedisResponse<T> = {
 
 async function redisCommand<T = unknown>(...command: string[]): Promise<T | null> {
   if (!REDIS_URL || !REDIS_TOKEN) {
-    throw new Error("Upstash Redis is not configured. Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in Vercel.");
+    throw new Error("Upstash Redis is not configured. Connect the Upstash Redis resource to this Vercel project.");
   }
 
   const response = await fetch(REDIS_URL, {

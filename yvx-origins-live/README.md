@@ -40,3 +40,7 @@ Because StackKnack returns a new refresh token during refresh, persistent storag
 - Uses product + variant/size + warehouse data for the dashboard and restock logic.
 
 The integration is read-only. It does not include StackKnack mutations.
+
+## Live-data-only UI
+
+The dashboard no longer contains sample inventory rows. If the StackKnack API or token store is unavailable, the UI shows a connection error and zero inventory instead of fake products.

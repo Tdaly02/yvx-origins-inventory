@@ -29,16 +29,6 @@ type Product = {
   lastSold: string | null;
 };
 
-const SAMPLE: Row[] = [
-  { id:"1", sku:"YVX-MASON-BRN-S", productId:"mason", product:"Mason Pant — Brown Cigar", size:"S", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:220, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:8 },
-  { id:"2", sku:"YVX-MASON-BRN-M", productId:"mason", product:"Mason Pant — Brown Cigar", size:"M", status:"SOLD", state:"sold", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:220, soldPrice:220, soldAt:"2026-09-18T17:30:00Z", updatedAt:new Date().toISOString(), days:0 },
-  { id:"3", sku:"YVX-MASON-BRN-L", productId:"mason", product:"Mason Pant — Brown Cigar", size:"L", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Back Stock", sellPrice:220, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:21 },
-  { id:"4", sku:"YVX-MERCY-S", productId:"mercy", product:"Mercy Jacket", size:"S", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Floor", sellPrice:380, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:4 },
-  { id:"5", sku:"YVX-MERCY-M", productId:"mercy", product:"Mercy Jacket", size:"M", status:"AVAILABLE", state:"on_hand", warehouse:"Miami", subLocation:"Rack 2", sellPrice:380, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:6 },
-  { id:"6", sku:"YVX-SKULLY-OS", productId:"skully", product:"YVX Skully Cap", size:"OS", status:"AVAILABLE", state:"on_hand", warehouse:"Origins NYC", subLocation:"Accessories", sellPrice:85, soldPrice:0, soldAt:null, updatedAt:new Date().toISOString(), days:12 },
-  { id:"7", sku:"YVX-SKULLY-OS-2", productId:"skully", product:"YVX Skully Cap", size:"OS", status:"SOLD", state:"sold", warehouse:"Origins NYC", subLocation:"Accessories", sellPrice:85, soldPrice:85, soldAt:"2026-09-20T20:00:00Z", updatedAt:new Date().toISOString(), days:0 },
-];
-
 function isOnHand(row: Row) {
   return row.state === "on_hand";
 }
@@ -64,8 +54,9 @@ function formatDate(value: string | null) {
 }
 
 export default function Page() {
-  const [rows, setRows] = useState<Row[]>(SAMPLE);
-  const [source, setSource] = useState<"sample"|"stackknack"|"unavailable">("sample");
+  const [rows, setRows] = useState<Row[]>([]);
+  const [source, setSource] = useState<"loading"|"stackknack"|"unavailable">("loading");
+  const [error, setError] = useState("");
   const [updated, setUpdated] = useState<string>(new Date().toISOString());
   const [query, setQuery] = useState("");
   const [warehouse, setWarehouse] = useState("All Locations");
@@ -81,12 +72,17 @@ export default function Page() {
       if (res.ok && Array.isArray(data.rows)) {
         setRows(data.rows);
         setSource("stackknack");
+        setError("");
         setUpdated(data.fetchedAt || new Date().toISOString());
       } else {
+        setRows([]);
         setSource("unavailable");
+        setError(data?.error || "StackKnack inventory could not be loaded.");
       }
-    } catch {
+    } catch (err) {
+      setRows([]);
       setSource("unavailable");
+      setError(err instanceof Error ? err.message : "StackKnack inventory could not be loaded.");
     } finally {
       setLoading(false);
     }
@@ -162,7 +158,7 @@ export default function Page() {
     <main>
       <header className="topbar">
         <div className="brand"><span className="mark">YVX</span><span>Origins Inventory</span></div>
-        <div className="sync"><span className={`dot ${source}`}></span>{source === "stackknack" ? "Live StackKnack" : source === "sample" ? "Preview data" : "StackKnack not connected"}</div>
+        <div className="sync"><span className={`dot ${source}`}></span>{source === "stackknack" ? "Live StackKnack" : source === "loading" ? "Connecting to StackKnack…" : "StackKnack not connected"}</div>
       </header>
 
       <section className="hero shell">
@@ -201,7 +197,7 @@ export default function Page() {
             <span>{p.available === 0 ? <em className="pill sold">Sold out</em> : p.lowSizes.length ? <em className="pill low">Low stock</em> : <em className="pill good">Healthy</em>}</span>
             <span className="arrow">›</span>
           </button>)}
-          {!products.length && <div className="empty">No products match these filters.</div>}
+          {!products.length && <div className="empty">{source === "loading" ? "Loading live StackKnack inventory…" : source === "unavailable" ? `Live inventory unavailable${error ? `: ${error}` : "."}` : "No products match these filters."}</div>}
         </div>
       </section>
 
